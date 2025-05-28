@@ -12,16 +12,14 @@
 #include "esp_log.h"
 #include "esp_err.h"
 
-#include "int_i2c.h" 
+#include "int_i2c.h"
 
-// LEDs Contador Binário
 #define LED1_GPIO GPIO_NUM_1
 #define LED2_GPIO GPIO_NUM_2
 #define LED3_GPIO GPIO_NUM_42
 #define LED4_GPIO GPIO_NUM_41
 const gpio_num_t binary_led_gpios[] = {LED1_GPIO, LED2_GPIO, LED3_GPIO, LED4_GPIO};
 
-// LED PWM
 #define PWM_LED_GPIO GPIO_NUM_39
 #define LEDC_TIMER              LEDC_TIMER_0
 #define LEDC_MODE               LEDC_LOW_SPEED_MODE
@@ -29,7 +27,6 @@ const gpio_num_t binary_led_gpios[] = {LED1_GPIO, LED2_GPIO, LED3_GPIO, LED4_GPI
 #define LEDC_DUTY_RES           LEDC_TIMER_10_BIT
 #define LEDC_FREQUENCY          (5000)
 
-// I2C LCD
 #define I2C_MASTER_SCL_IO    GPIO_NUM_12
 #define I2C_MASTER_SDA_IO    GPIO_NUM_13
 #define I2C_MASTER_NUM       I2C_NUM_0
@@ -37,11 +34,9 @@ const gpio_num_t binary_led_gpios[] = {LED1_GPIO, LED2_GPIO, LED3_GPIO, LED4_GPI
 #define LCD_ADDRESS          0x27
 #define LCD_DISPLAY_TYPE     DISPLAY_16X02
 
-// Botões
 #define BUTTON_INC_GPIO      GPIO_NUM_14
 #define BUTTON_DEC_GPIO      GPIO_NUM_19
 
-// --- Variáveis Globais ---
 lcd_i2c_handle_t lcd_handle;
 static const char *TAG = "MAIN_APP";
 
@@ -52,7 +47,6 @@ static TickType_t last_dec_press_time = 0;
 const TickType_t debounce_delay = pdMS_TO_TICKS(50);
 
 
-// Funções de Inicialização e Controle
 static void binary_leds_init(void) {
     for (int i = 0; i < sizeof(binary_led_gpios)/sizeof(gpio_num_t); i++) {
         gpio_reset_pin(binary_led_gpios[i]);
@@ -131,7 +125,6 @@ static void buttons_init(void) {
 }
 
 
-// --- Função Principal app_main ---
 void app_main(void) {
     binary_leds_init();
     pwm_led_init();
@@ -147,7 +140,7 @@ void app_main(void) {
 
     lcd_i2c_print(&lcd_handle, "ESP32-S3 Ativ.6");
     lcd_i2c_cursor_set(&lcd_handle, 0, 1);
-    lcd_i2c_print(&lcd_handle, "Contador & PWM");
+    lcd_i2c_print(&lcd_handle, "Contador & PWM"); 
     vTaskDelay(pdMS_TO_TICKS(1500));
 
     uint8_t counter = 0;
@@ -174,7 +167,7 @@ void app_main(void) {
         if (!current_button_inc_state_val && last_button_inc_state) {
             if ((current_time - last_inc_press_time) > debounce_delay) {
                 counter++;
-                if (counter > 15) { // Se ultrapassar 15, volta para 0
+                if (counter > 15) {
                     counter = 0;
                 }
                 counter_changed = true;
@@ -187,7 +180,7 @@ void app_main(void) {
         bool current_button_dec_state_val = gpio_get_level(BUTTON_DEC_GPIO);
         if (!current_button_dec_state_val && last_button_dec_state) {
             if ((current_time - last_dec_press_time) > debounce_delay) {
-                if (counter == 0) { // Se estiver em 0 e decrementar, vai para 15
+                if (counter == 0) {
                     counter = 15;
                 } else {
                     counter--;
@@ -211,14 +204,16 @@ void app_main(void) {
             set_pwm_led_brightness(pwm_brightness);
         }
 
-        // Atualizações Condicionais do LCD
+        // --- Atualizações Condicionais do LCD ---
+        // Atualiza LCD - Linha 0: Contador em Hex e Dec (se mudou ou primeira vez)
         if (counter_changed || prev_counter == 0xFF) {
             lcd_i2c_cursor_set(&lcd_handle, 0, 0);
-            snprintf(lcd_buffer, sizeof(lcd_buffer), "Cont: %02u (0-15)", counter);
+            snprintf(lcd_buffer, sizeof(lcd_buffer), "Hex:%02X  Dec:%02u ", counter, counter);
             lcd_i2c_print(&lcd_handle, lcd_buffer);
             prev_counter = counter;
         }
 
+        // Atualiza LCD - Linha 1: PWM (se mudou ou primeira vez)
         if (pwm_value_for_lcd_changed || prev_pwm_brightness == 0xFF) {
             lcd_i2c_cursor_set(&lcd_handle, 0, 1);
             snprintf(lcd_buffer, sizeof(lcd_buffer), "PWM: %3u%%      ", pwm_brightness);
